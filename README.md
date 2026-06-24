@@ -1,60 +1,71 @@
 # IPTV Modern Player
 
-A modern IPTV Player built with **Python**, **PyQt6**, and **MPV**, featuring a clean and responsive interface, playlist management, advanced playback controls, subtitle support, stream quality selection, and fullscreen viewing.
+Modern IPTV Player built with **Python**, **PyQt6**, and **MPV**.
+
+Designed for fast playlist loading, smooth playback, category management, and advanced stream controls with a modern desktop experience.
 
 ---
 
-## ✨ Features
+## Features
 
-- 📺 Load local `.m3u` playlists
-- 🌐 Load remote M3U playlist URLs
-- 🎬 Play direct media and IPTV streams
+- 📺 Load local M3U playlists
+- 🌐 Load remote M3U URLs
+- 🎬 Play direct media streams
 - 🔍 Real-time channel search
-- 🗂 Automatic category grouping
-- ⚡ Hardware-accelerated playback via MPV
-- 🎞 Dynamic quality switching for HLS streams
-- 🔊 Audio track selection
-- 📝 Subtitle track selection
-- 🤖 Automatic subtitle detection
+- 🗂 Automatic channel categorization
+- ⚡ MPV hardware accelerated playback
+- 🎞 Dynamic quality selection for HLS streams
+- 📝 Subtitle track support
+- 🔊 Audio track switching
 - ⛶ Fullscreen mode
 - ⌨ Keyboard shortcuts
-- 🎨 Modern dark theme UI
+- 🎨 Modern dark interface
 - 🚀 Multi-threaded playlist loading
-- 📡 Support for M3U, M3U8, MP4, MKV, TS, and MP3 streams
+- 📡 Support for M3U, M3U8, MP4, MKV, AVI, TS and MP3 streams
 
 ---
 
-## 📸 Preview
+## Why IPTV Modern Player?
 
-Add your screenshots here:
+Most IPTV players are either outdated, bloated, or lack advanced playback controls.
 
-```text
-screenshots/
-├── home.png
-├── player.png
-└── fullscreen.png
-```
+IPTV Modern Player focuses on:
+
+- Fast startup
+- Responsive user interface
+- Clean channel organization
+- MPV-powered playback reliability
+- Easy playlist management
+- Modern desktop experience
 
 ---
 
-# 🚀 Installation
+## Requirements
 
-## Clone Repository
+- Python 3.10+
+- Windows 10 / Windows 11
+- MPV Runtime Libraries
+
+---
+
+## Installation
+
+Clone the repository:
 
 ```bash
-git clone https://github.com/USERNAME/IPTV-Modern-Player.git
+git clone https://github.com/YOUR_USERNAME/IPTV-Modern-Player.git
 cd IPTV-Modern-Player
 ```
 
----
-
-## Install Dependencies
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### requirements.txt
+---
+
+## Dependencies
 
 ```txt
 PyQt6
@@ -65,35 +76,28 @@ urllib3
 
 ---
 
-# ⚠ Required MPV DLL Files
+## MPV Runtime (Required)
 
-This application uses the Python MPV binding:
+This project uses the Python MPV bindings for media playback.
+
+Required runtime DLL files must be placed next to the executable or source files.
+
+Download MPV runtime files from:
 
 https://github.com/jaseg/python-mpv
 
-To run on Windows, MPV runtime DLL files are required.
-
-Download MPV binaries from:
+or
 
 https://mpv.io
 
-or
-
-https://sourceforge.net/projects/mpv-player-windows/files/
-
-After extracting, copy the required DLL files beside:
+Required files:
 
 ```text
-main.py
+mpv-2.dll
+libwinpthread-1.dll
 ```
 
-or
-
-```text
-IPTVModernPlayer.exe
-```
-
-Example:
+Example structure:
 
 ```text
 project/
@@ -104,7 +108,7 @@ project/
 └── ...
 ```
 
-When building with PyInstaller:
+For packaged builds:
 
 ```text
 dist/
@@ -114,19 +118,11 @@ dist/
 └── libwinpthread-1.dll
 ```
 
-The application automatically loads DLL files using:
-
-```python
-os.add_dll_directory(...)
-```
-
-which ensures compatibility with PyInstaller and standalone builds.
-
 ---
 
-# ▶ Running
+## Running
 
-Development mode:
+Start the application:
 
 ```bash
 python main.py
@@ -134,55 +130,33 @@ python main.py
 
 ---
 
-# 📦 Building Executable
+## Usage
 
-Using PyInstaller:
+### Load Local Playlist
 
-```bash
-pyinstaller --noconfirm --onefile --windowed main.py
-```
+1. Click **Load M3U**
+2. Select your playlist file
+3. Choose a category
+4. Select a channel
 
-Generated executable:
+### Load Playlist URL
 
-```text
-dist/
-└── IPTVModernPlayer.exe
-```
+1. Paste playlist URL
+2. Click Play
+3. Browse channels
 
-Don't forget to place the MPV DLL files beside the executable.
+### Direct Stream Playback
 
----
-
-# 📺 Supported Formats
-
-### Playlist Files
+Supported examples:
 
 ```text
-.m3u
-.m3u8
-```
-
-### Streaming Protocols
-
-```text
-HLS (.m3u8)
-HTTP
-HTTPS
-```
-
-### Media Files
-
-```text
-.mp4
-.mkv
-.ts
-.mp3
-.avi
+https://example.com/live.m3u8
+https://example.com/video.mp4
 ```
 
 ---
 
-# ⌨ Keyboard Shortcuts
+## Keyboard Shortcuts
 
 | Key | Action |
 |-------|----------|
@@ -197,84 +171,36 @@ HTTPS
 
 ---
 
-# 🏗 Architecture
+## Supported Formats
+
+### Playlists
 
 ```text
-IPTV Modern Player
-│
-├── Controllers
-│   ├── PlayerController
-│   ├── PlaylistController
-│   ├── SearchController
-│   ├── SettingsController
-│   ├── FullscreenController
-│   └── KeyboardController
-│
-├── Services
-│   ├── PlaylistService
-│   ├── ParserService
-│   ├── NetworkService
-│   └── SubtitleService
-│
-├── Managers
-│   ├── MPVManager
-│   └── ThreadManager
-│
-├── Repository
-│   └── PlaylistRepository
-│
-├── UI
-│   ├── Widgets
-│   ├── Styles
-│   └── MainWindow
-│
-└── Models
+.m3u
+.m3u8
+```
+
+### Streams
+
+```text
+HLS
+HTTP
+HTTPS
+```
+
+### Media
+
+```text
+MP4
+MKV
+AVI
+TS
+MP3
 ```
 
 ---
 
-# 🎯 Main Capabilities
-
-### Playlist Management
-
-- Parse M3U playlists
-- Categorize channels automatically
-- Handle multiple stream URLs per channel
-
-### Playback
-
-- MPV-powered video rendering
-- Hardware acceleration
-- Stream buffering monitoring
-- Playback progress tracking
-
-### Streaming
-
-- IPTV support
-- HLS support
-- Direct stream playback
-- Multiple stream quality options
-
-### User Experience
-
-- Fast search
-- Fullscreen mode
-- Custom settings popup
-- Modern responsive interface
-
----
-
-# 🛠 Technology Stack
-
-- Python 3.10+
-- PyQt6
-- python-mpv
-- Requests
-- urllib3
-
----
-
-# 📁 Project Structure
+## Project Structure
 
 ```text
 .
@@ -297,13 +223,93 @@ IPTV Modern Player
 
 ---
 
-# 🙏 Credits
+## Architecture
+
+```text
+Application
+│
+├── UI Layer
+│
+├── Controllers
+│
+├── Services
+│
+├── Managers
+│
+├── Repository
+│
+└── MPV Engine
+```
+
+### Controllers
+
+- PlayerController
+- PlaylistController
+- SearchController
+- SettingsController
+- FullscreenController
+- KeyboardController
+
+### Services
+
+- PlaylistService
+- ParserService
+- NetworkService
+- SubtitleService
+
+### Managers
+
+- MPVManager
+- ThreadManager
+
+### Repository
+
+- PlaylistRepository
+
+---
+
+## Building
+
+Create a standalone executable using PyInstaller:
+
+```bash
+pyinstaller --noconfirm --onefile --windowed main.py
+```
+
+Output:
+
+```text
+dist/
+└── IPTVModernPlayer.exe
+```
+
+Place MPV runtime DLL files beside the executable before distribution.
+
+---
+
+## Roadmap
+
+- [x] M3U Playlist Support
+- [x] HLS Stream Playback
+- [x] Subtitle Support
+- [x] Audio Track Selection
+- [x] Quality Switching
+- [x] Fullscreen Mode
+- [x] Channel Search
+- [ ] Favorites System
+- [ ] Playlist History
+- [ ] EPG Support
+- [ ] Multi-language Interface
+
+---
+
+## Credits
 
 ### MPV
 
 https://mpv.io
 
-### Python MPV Binding
+### Python MPV
 
 https://github.com/jaseg/python-mpv
 
@@ -313,14 +319,12 @@ https://www.riverbankcomputing.com/software/pyqt/
 
 ---
 
-# 📄 License
+## License
 
 MIT License
 
-Feel free to use, modify, and distribute this project.
-
 ---
 
-# ⭐ Support
+## Support
 
-If you find this project useful, please consider giving it a ⭐ on GitHub.
+If you find this project useful, consider giving it a ⭐ on GitHub.

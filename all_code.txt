@@ -1,0 +1,1681 @@
+﻿
+==================================================
+### FILE: .\app.py ###
+==================================================
+import sys
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
+
+from ui.windows.main_window import MainWindow
+
+class Application:
+    def __init__(self):
+        QApplication.setHighDpiScaleFactorRoundingPolicy(
+            Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+        )
+        self.app = QApplication(sys.argv)
+        self.app.setStyle("Fusion")
+        self.app.setFont(QFont("Segoe UI", 11))
+        
+        # Dependency Injection for the Main Window
+        self.window = MainWindow()
+
+    def run(self) -> int:
+        self.window.show()
+        return self.app.exec()
+
+==================================================
+### FILE: .\main.py ###
+==================================================
+import os
+import sys
+import urllib3
+
+# Suppress SSL warnings globally
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# ==========================================
+# DLL FIX (Windows / PyInstaller Compatibility)
+# ==========================================
+if getattr(sys, 'frozen', False):
+    script_dir = sys._MEIPASS
+else:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+if hasattr(os, "add_dll_directory"):
+    os.add_dll_directory(script_dir)
+os.environ["PATH"] = script_dir + os.pathsep + os.environ["PATH"]
+
+from app import Application
+
+if __name__ == "__main__":
+    app = Application()
+    sys.exit(app.run())
+
+==================================================
+### FILE: .\config\colors.py ###
+==================================================
+class Colors:
+    PRIMARY = "#00d4ff"
+    PRIMARY_HOVER = "#00b8e6"
+    PRIMARY_LIGHT = "#66e5ff"
+    PRIMARY_DARK = "#0099cc"
+    BG_DARK = "#0a0e1a"
+    BG_MEDIUM = "#111827"
+    BG_LIGHT = "#1a2332"
+    BG_CARD = "#0f1729"
+    BG_SIDEBAR = "#0d1320"
+    TEXT_PRIMARY = "#e8f4f8"
+    TEXT_SECONDARY = "#8ba4b8"
+    TEXT_MUTED = "#4a6070"
+    ACCENT_GREEN = "#00e676"
+    ACCENT_RED = "#ff5252"
+    ACCENT_BLUE = "#00d4ff"
+    ACCENT_YELLOW = "#ffd740"
+    BORDER_LIGHT = "#1e3048"
+    BORDER_FOCUS = "#00d4ff"
+    GRADIENT_PRIMARY_START = "#00d4ff"
+    GRADIENT_PRIMARY_END = "#0099ff"
+    GRADIENT_BG_START = "#0a0e1a"
+    GRADIENT_BG_END = "#111d30"
+    GRADIENT_CARD_START = "#0f1729"
+    GRADIENT_CARD_END = "#162236"
+    GRADIENT_SIDEBAR_START = "#0d1320"
+    GRADIENT_SIDEBAR_END = "#111d30"
+    GRADIENT_BUTTON_START = "#00c8ff"
+    GRADIENT_BUTTON_END = "#0088cc"
+
+==================================================
+### FILE: .\config\constants.py ###
+==================================================
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+]
+
+DEFAULT_TIMEOUT = 20
+
+DEFAULT_VOLUME = 80
+
+SEARCH_DEBOUNCE_MS = 250
+
+THROTTLE_INTERVAL_MS = 250
+
+==================================================
+### FILE: .\config\__init__.py ###
+==================================================
+
+
+==================================================
+### FILE: .\controllers\fullscreen_controller.py ###
+==================================================
+from PyQt6.QtCore import QObject, pyqtSignal
+
+class FullscreenController(QObject):
+    fullscreen_state_changed = pyqtSignal(bool)
+
+    def __init__(self):
+        super().__init__()
+        self.is_fullscreen = False
+
+    def toggle(self):
+        self.is_fullscreen = not self.is_fullscreen
+        self.fullscreen_state_changed.emit(self.is_fullscreen)
+
+==================================================
+### FILE: .\controllers\keyboard_controller.py ###
+==================================================
+from PyQt6.QtCore import QObject, Qt
+from config.constants import DEFAULT_VOLUME
+
+class KeyboardController(QObject):
+    def __init__(self, player_ctrl, playlist_ctrl, settings_ctrl, fullscreen_ctrl, volume_slider):
+        super().__init__()
+        self.player = player_ctrl
+        self.playlist = playlist_ctrl
+        self.settings = settings_ctrl
+        self.fullscreen = fullscreen_ctrl
+        self.volume_slider = volume_slider
+        self._prev_volume = DEFAULT_VOLUME
+
+    def handle_key(self, event):
+        key = event.key()
+        if key == Qt.Key.Key_Escape and self.fullscreen.is_fullscreen:
+            self.fullscreen.toggle()
+        elif key == Qt.Key.Key_F:
+            self.fullscreen.toggle()
+        elif key == Qt.Key.Key_Space:
+            self.player.toggle_play_pause()
+        elif key == Qt.Key.Key_Right:
+            self.player.play_next()
+        elif key == Qt.Key.Key_Left:
+            self.player.play_prev()
+        elif key == Qt.Key.Key_Up:
+            self.volume_slider.setValue(min(100, self.volume_slider.value() + 5))
+        elif key == Qt.Key.Key_Down:
+            self.volume_slider.setValue(max(0, self.volume_slider.value() - 5))
+        elif key == Qt.Key.Key_M:
+            self._toggle_mute()
+        else:
+            return False
+        return True
+
+    def _toggle_mute(self):
+        if self.volume_slider.value() > 0:
+            self._prev_volume = self.volume_slider.value()
+            self.volume_slider.setValue(0)
+        else:
+            self.volume_slider.setValue(self._prev_volume)
+
+==================================================
+### FILE: .\controllers\player_controller.py ###
+==================================================
+from PyQt6.QtCore import QObject, pyqtSignal, QTimer
+from managers.mpv_manager import MPVManager
+from repositories.playlist_repository import PlaylistRepository
+from utils.helpers import format_time
+
+class PlayerController(QObject):
+    loading_state_changed = pyqtSignal(bool)
+    status_update = pyqtSignal(dict)
+    channel_name_requested = pyqtSignal(str)
+
+    def __init__(self, mpv_manager: MPVManager, repo: PlaylistRepository):
+        super().__init__()
+        self.mpv = mpv_manager
+        self.repo = repo
+        self.current_url = ""
+        self.current_channel_index = -1
+        self.is_playing_attempt = False
+        self.stream_status = "Ready"
+        
+        self._current_time = 0.0
+        self._total_duration = 0.0
+        self._buffering_state = 0
+        self._cache_used = 0
+        self._last_progress_value = -1
+        
+        self._pending_time_pos = None
+        self._pending_duration = None
+        self._pending_buffering = None
+        self._pending_cache_used = None
+        self._pending_status_text = ""
+
+        self._throttle_timer = QTimer(self)
+        self._throttle_timer.setInterval(250)
+        self._throttle_timer.timeout.connect(self._flush_updates)
+        self._throttle_timer.start()
+
+        self.mpv.time_pos_changed.connect(self._on_time_pos)
+        self.mpv.duration_changed.connect(self._on_duration)
+        self.mpv.buffering_changed.connect(self._on_buffering)
+        self.mpv.cache_used_changed.connect(self._on_cache)
+        self.mpv.idle_active_changed.connect(self._on_idle)
+
+    def play_channel(self, url: str):
+        self.current_url = url
+        self._reset_playback_state()
+        self.loading_state_changed.emit(True)
+        self.is_playing_attempt = True
+        self.stream_status = "Loading"
+        self._emit_status()
+        
+        try:
+            self.mpv.play(url)
+            channel = self.repo.get_channel_by_url(url)
+            name = channel['name'] if channel else "Unknown Channel"
+            self.channel_name_requested.emit(name)
+        except Exception as e:
+            self.loading_state_changed.emit(False)
+            print(f"Playback error: {e}")
+
+    def _reset_playback_state(self):
+        self._current_time = 0.0
+        self._total_duration = 0.0
+        self._buffering_state = 0
+        self._cache_used = 0
+        self._last_progress_value = -1
+
+    def toggle_play_pause(self):
+        self.mpv.set_pause(not self.mpv.is_paused())
+
+    def play_next(self):
+        channels = self.repo.get_channels()
+        if not channels: return
+        self.current_channel_index = 0 if self.current_channel_index == -1 else min(self.current_channel_index + 1, len(channels) - 1)
+        streams = channels[self.current_channel_index].get("streams", [])
+        if streams: self.play_channel(streams[0]["url"])
+
+    def play_prev(self):
+        channels = self.repo.get_channels()
+        if channels and self.current_channel_index > 0:
+            self.current_channel_index -= 1
+            streams = channels[self.current_channel_index].get("streams", [])
+            if streams: self.play_channel(streams[0]["url"])
+
+    def seek(self, value: int):
+        if self._total_duration > 0:
+            self.mpv.seek((value / 100.0) * self._total_duration)
+
+    def set_volume(self, value: int):
+        self.mpv.set_volume(value)
+
+    def _on_time_pos(self, value):
+        if value is not None:
+            self._pending_time_pos = value
+            if value > 0.5 and self.is_playing_attempt:
+                self.loading_state_changed.emit(False)
+                self.is_playing_attempt = False
+                self.stream_status = "Playing"
+
+    def _on_duration(self, value):
+        if value is not None: self._pending_duration = value
+
+    def _on_buffering(self, value):
+        if value is not None: self._pending_buffering = value
+
+    def _on_cache(self, value):
+        if value is not None: self._pending_cache_used = value
+
+    def _on_idle(self, value):
+        if value and self.is_playing_attempt:
+            self.loading_state_changed.emit(False)
+            self.is_playing_attempt = False
+            self.stream_status = "Error"
+            self._emit_status()
+
+    def _flush_updates(self):
+        updated = False
+        if self._pending_time_pos is not None:
+            self._current_time = self._pending_time_pos
+            self._pending_time_pos = None
+            updated = True
+        if self._pending_duration is not None:
+            self._total_duration = self._pending_duration
+            self._pending_duration = None
+            updated = True
+        if self._pending_buffering is not None:
+            self._buffering_state = self._pending_buffering
+            self._pending_buffering = None
+            updated = True
+        if self._pending_cache_used is not None:
+            self._cache_used = self._pending_cache_used
+            self._pending_cache_used = None
+            updated = True
+        if updated: self._emit_status()
+
+    def _emit_status(self):
+        time_str = f"{format_time(self._current_time)} / {format_time(self._total_duration)}" if self._total_duration > 0 else format_time(self._current_time)
+        cache_mb = self._cache_used / (1024 * 1024) if self._cache_used else 0
+        new_text = f"{self.stream_status} | Played: {time_str} | Buffered: {self._buffering_state}% | Cache: {cache_mb:.1f} MB"
+        
+        progress_val = int((self._current_time / self._total_duration) * 100) if self._total_duration > 0 else 0
+        if progress_val == self._last_progress_value: progress_val = -1
+        else: self._last_progress_value = progress_val
+
+        if new_text != self._pending_status_text:
+            self._pending_status_text = new_text
+            self.status_update.emit({
+                "text": new_text, "progress": progress_val,
+                "time_label": format_time(self._current_time),
+                "duration_label": format_time(self._total_duration)
+            })
+
+==================================================
+### FILE: .\controllers\playlist_controller.py ###
+==================================================
+from PyQt6.QtCore import QObject, pyqtSignal
+from services.playlist_service import PlaylistService
+from repositories.playlist_repository import PlaylistRepository
+from managers.thread_manager import ThreadManager
+
+class PlaylistController(QObject):
+    playlist_loaded = pyqtSignal(int)
+    categories_updated = pyqtSignal(list)
+    channels_updated = pyqtSignal(list, bool, int)
+    loading_state_changed = pyqtSignal(bool)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, service: PlaylistService, repo: PlaylistRepository, thread_mgr: ThreadManager):
+        super().__init__()
+        self.service = service
+        self.repo = repo
+        self.thread_mgr = thread_mgr
+        self.current_category_name = None
+        self.current_category_channels = []
+        self._pending_url = ""
+
+    def load_file(self, file_path: str):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                self._process_content(f.read())
+        except Exception as e:
+            self.error_occurred.emit(f"Failed to read file:\n{e}")
+
+    def load_url(self, url: str):
+        self._pending_url = url
+        if url.lower().endswith(('.mp4', '.mkv', '.avi', '.ts', '.mp3', '.m3u8')) or ('m3u8' in url):
+            self.playlist_loaded.emit(-1)
+            return
+        self.loading_state_changed.emit(True)
+        self.thread_mgr.start_loader(url, self._on_url_loaded, self._on_url_error)
+
+    def get_pending_url(self) -> str:
+        return self._pending_url
+
+    def _on_url_loaded(self, content: str):
+        if '#EXT-X-VERSION' in content or '#EXT-X-TARGETDURATION' in content or not content.strip().startswith('#EXTM3U'):
+            self.loading_state_changed.emit(False)
+            self.playlist_loaded.emit(-1)
+            return
+        self._process_content(content)
+
+    def _on_url_error(self, error_msg: str):
+        self.loading_state_changed.emit(False)
+        self.error_occurred.emit(f"Failed to fetch URL:\n{error_msg}")
+
+    def _process_content(self, content: str):
+        self.loading_state_changed.emit(True)
+        result = self.service.process_content(content)
+        if result == "SINGLE_STREAM":
+            self.loading_state_changed.emit(False)
+            self.playlist_loaded.emit(-1)
+            return
+        if result == "NO_CHANNELS":
+            self.loading_state_changed.emit(False)
+            self.error_occurred.emit("No channels found in this file.")
+            return
+        
+        channels = self.repo.get_channels()
+        channels.sort(key=lambda x: x.get('name', 'Unknown').lower())
+        self.repo.set_data(channels, self.repo._url_to_channel)
+        self.loading_state_changed.emit(False)
+        self.playlist_loaded.emit(len(channels))
+        self._populate_categories()
+
+    def _populate_categories(self):
+        channels = self.repo.get_channels()
+        categories = {}
+        for ch in channels:
+            categories.setdefault(ch["group"], []).append(ch)
+        
+        cat_list = []
+        for group_name in sorted(categories.keys()):
+            cat_list.append({"name": group_name, "channels": categories[group_name]})
+        self.categories_updated.emit(cat_list)
+
+    def select_category(self, category_name: str, channels: list):
+        self.current_category_name = category_name
+        self.current_category_channels = channels
+        self.populate_channel_list(channels)
+
+    def populate_channel_list(self, channels: list, is_search: bool = False, match_count: int = 0):
+        self.channels_updated.emit(channels, is_search, match_count)
+
+==================================================
+### FILE: .\controllers\search_controller.py ###
+==================================================
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from repositories.playlist_repository import PlaylistRepository
+
+class SearchController(QObject):
+    search_results = pyqtSignal(list, int)
+
+    def __init__(self, repo: PlaylistRepository):
+        super().__init__()
+        self.repo = repo
+        self._pending_text = ""
+        self._base_channels = []
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(250)
+        self._timer.timeout.connect(self._do_filter)
+
+    def set_query(self, text: str, base_channels: list):
+        self._pending_text = text
+        self._base_channels = base_channels
+        self._timer.start()
+
+    def _do_filter(self):
+        text = self._pending_text.lower().strip()
+        if not text:
+            self.search_results.emit(self._base_channels, 0)
+            return
+
+        filtered = []
+        for ch in self._base_channels:
+            if text in ch['name'].lower() or any(text in s['url'].lower() for s in ch.get('streams', [])):
+                filtered.append(ch)
+                if len(filtered) >= 2000: break
+        self.search_results.emit(filtered, len(filtered))
+
+==================================================
+### FILE: .\controllers\settings_controller.py ###
+==================================================
+import hashlib
+from PyQt6.QtCore import QObject
+from managers.mpv_manager import MPVManager
+from utils.helpers import get_quality_label
+
+class SettingsController(QObject):
+    def __init__(self, mpv_manager: MPVManager):
+        super().__init__()
+        self.mpv = mpv_manager
+        self._last_hash = None
+        self._sub_auto_selected = False
+
+    def reset_subtitle_state(self):
+        self._sub_auto_selected = False
+
+    def change_audio(self, combo):
+        self.mpv.set_audio_track(str(combo.currentData() or "auto"))
+
+    def change_sub(self, combo):
+        data = combo.currentData()
+        if data is not None: self.mpv.set_sub_track(str(data))
+
+    def change_quality(self, combo, current_url_getter, play_url_callback):
+        data = combo.currentData()
+        if data is None: return
+        if isinstance(data, str) and data.startswith("URL::"):
+            new_url = data[5:]
+            if new_url != current_url_getter():
+                play_url_callback(new_url)
+        elif data != "auto":
+            self.mpv.set_video_track(str(data))
+        else:
+            self.mpv.set_video_track("auto")
+
+    def process_track_list(self, track_list, audio_combo, sub_combo, quality_combo):
+        if not track_list: return
+        track_sig = tuple(sorted((t.get('id'), t.get('type'), t.get('lang'), t.get('title'), t.get('h'), t.get('fps')) for t in track_list))
+        new_hash = hashlib.md5(str(track_sig).encode()).hexdigest()
+        
+        if new_hash == self._last_hash:
+            if not self._sub_auto_selected: self._try_auto_sub(sub_combo)
+            return
+        
+        self._last_hash = new_hash
+        self._rebuild_combos(track_list, audio_combo, sub_combo, quality_combo)
+        if not self._sub_auto_selected: self._try_auto_sub(sub_combo)
+
+    def _rebuild_combos(self, track_list, audio_combo, sub_combo, quality_combo):
+        for combo in [audio_combo, sub_combo, quality_combo]: combo.blockSignals(True)
+        
+        audio_combo.clear(); audio_combo.addItem("Auto")
+        sub_combo.clear(); sub_combo.addItem("No Subtitle"); sub_combo.addItem("Auto Select")
+        
+        master_items = [(quality_combo.itemText(i), quality_combo.itemData(i)) for i in range(quality_combo.count()) if isinstance(quality_combo.itemData(i), str) and str(quality_combo.itemData(i)).startswith("URL::")]
+        quality_combo.clear(); quality_combo.addItem("Auto")
+        for text, data in master_items: quality_combo.addItem(text, data)
+
+        video_tracks = []
+        for track in track_list:
+            try:
+                t_type, t_id = track.get('type'), str(track.get('id', ''))
+                title, lang = track.get('title', '') or '', track.get('lang', '') or ''
+                name = " - ".join(p for p in (title, lang.upper()) if p) or f"Track {t_id}"
+                if t_type == 'audio': audio_combo.addItem(f" {name} ", t_id)
+                elif t_type == 'sub':
+                    is_cc = any(x in title.lower() for x in ['cc', 'closed caption', '608', '708'])
+                    sub_combo.addItem(f"{'📺' if is_cc else '📝'} {name} {'[CC]' if is_cc else ''} ", t_id)
+                elif t_type == 'video':
+                    h, fps = track.get('h', 0) or 0, track.get('fps', 0) or 0
+                    if h >= 360: video_tracks.append({'id': t_id, 'label': get_quality_label(h, fps), 'height': h})
+            except Exception: pass
+        
+        for t in sorted(video_tracks, key=lambda x: x['height'], reverse=True):
+            quality_combo.addItem(f"🎬 {t['label']} ", t['id'])
+            
+        for combo in [audio_combo, sub_combo, quality_combo]: combo.blockSignals(False)
+
+    def _try_auto_sub(self, sub_combo):
+        self._sub_auto_selected = True
+        tracks = self.mpv.get_track_list()
+        
+        for track in tracks:
+            if track.get("type") == "sub":
+                lang = (track.get("lang") or "").lower()
+                title = (track.get("title") or "").lower()
+                if lang in ["en", "eng"] and "cc" not in title and "608" not in title and "708" not in title:
+                    self.mpv.set_sub_track(str(track["id"]))
+                    self._update_combo_index(sub_combo, str(track["id"]))
+                    return
+                    
+        for track in tracks:
+            if track.get("type") == "sub":
+                title = (track.get("title") or "").lower()
+                if "cc" not in title and "608" not in title and "708" not in title:
+                    self.mpv.set_sub_track(str(track["id"]))
+                    self._update_combo_index(sub_combo, str(track["id"]))
+                    return
+                    
+        for track in tracks:
+            if track.get("type") == "sub":
+                self.mpv.set_sub_track(str(track["id"]))
+                self._update_combo_index(sub_combo, str(track["id"]))
+                return
+
+    def _update_combo_index(self, combo, track_id):
+        for i in range(combo.count()):
+            if combo.itemData(i) == track_id:
+                combo.setCurrentIndex(i)
+                break
+
+==================================================
+### FILE: .\managers\mpv_manager.py ###
+==================================================
+import mpv
+from PyQt6.QtCore import QObject, pyqtSignal
+from utils.headers import get_random_user_agent
+from config.constants import DEFAULT_VOLUME
+
+class MPVManager(QObject):
+    time_pos_changed = pyqtSignal(float)
+    duration_changed = pyqtSignal(float)
+    buffering_changed = pyqtSignal(int)
+    cache_used_changed = pyqtSignal(int)
+    idle_active_changed = pyqtSignal(bool)
+    track_list_changed = pyqtSignal(list)
+    volume_changed = pyqtSignal(int)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.player = None
+
+    def initialize(self, window_id: int):
+        try:
+            self.player = mpv.MPV(
+                wid=window_id, loglevel="warn", force_window="immediate", idle="yes", keep_open="yes",
+                title="IPTV Modern Player", input_default_bindings=True, input_vo_keyboard=True,
+                vo="gpu", gpu_api="d3d11", hwdec="auto", profile="fast", video_sync="audio",
+                framedrop="vo", network_timeout="5", cache="yes", cache_secs="2",
+                demuxer_readahead_secs="1", demuxer_max_bytes="16MiB", force_seekable="no",
+                ao="wasapi", audio_buffer="0.1",
+                demuxer_lavf_o="fflags=+discardcorrupt+genpts+igndts",
+                stream_lavf_o="reconnect=1,reconnect_on_network_error=1,reconnect_delay_max=2",
+                user_agent=get_random_user_agent(), sub_visibility=True, sub_delay=0,
+                volume=DEFAULT_VOLUME, hr_seek="absolute", hr_seek_framedrop="no"
+            )
+            self._setup_observers()
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+
+    def _setup_observers(self):
+        p = self.player
+        p.observe_property('time-pos', lambda _, v: self.time_pos_changed.emit(v) if v is not None else None)
+        p.observe_property('duration', lambda _, v: self.duration_changed.emit(v) if v is not None else None)
+        p.observe_property('cache-buffering-state', lambda _, v: self.buffering_changed.emit(v) if v is not None else None)
+        p.observe_property('cache-used', lambda _, v: self.cache_used_changed.emit(v) if v is not None else None)
+        p.observe_property('idle-active', lambda _, v: self.idle_active_changed.emit(v) if v is not None else None)
+        p.observe_property('track-list', lambda _, v: self.track_list_changed.emit(v) if v else None)
+        p.observe_property('volume', lambda _, v: self.volume_changed.emit(int(v)) if v is not None else None)
+
+    def play(self, url: str):
+        if self.player: self.player.play(url)
+
+    def set_pause(self, pause: bool):
+        if self.player: self.player.pause = pause
+
+    def is_paused(self) -> bool:
+        return self.player.pause if self.player else True
+
+    def seek(self, position: float):
+        if self.player: self.player.seek(position)
+
+    def set_volume(self, value: int):
+        if self.player: self.player.volume = value
+
+    def set_audio_track(self, track_id: str):
+        if self.player: self.player.audio = track_id
+
+    def set_sub_track(self, track_id: str):
+        if self.player:
+            self.player.sub = track_id
+            self.player.sub_visibility = (track_id != "no")
+
+    def set_video_track(self, track_id: str):
+        if self.player: self.player.video = track_id
+
+    def get_track_list(self) -> list:
+        return self.player.track_list or [] if self.player else []
+
+    def terminate(self):
+        if self.player:
+            try: self.player.terminate()
+            except: pass
+
+==================================================
+### FILE: .\managers\thread_manager.py ###
+==================================================
+from PyQt6.QtCore import QObject
+from threads.m3u_loader_thread import M3ULoaderThread
+from threads.quality_thread import M3U8QualityThread
+
+class ThreadManager(QObject):
+    def __init__(self):
+        super().__init__()
+        self.loader_thread = None
+        self.quality_thread = None
+
+    def start_loader(self, url: str, on_finished, on_error):
+        self._cleanup_thread(self.loader_thread)
+        self.loader_thread = M3ULoaderThread(url)
+        self.loader_thread.finished.connect(on_finished)
+        self.loader_thread.error.connect(on_error)
+        self.loader_thread.start()
+
+    def start_quality(self, url: str, on_finished):
+        self._cleanup_thread(self.quality_thread)
+        self.quality_thread = M3U8QualityThread(url)
+        self.quality_thread.finished.connect(on_finished)
+        self.quality_thread.start()
+
+    def _cleanup_thread(self, thread):
+        if thread and thread.isRunning():
+            thread.quit()
+            thread.wait(2000)
+            thread.deleteLater()
+
+    def cleanup_all(self):
+        self._cleanup_thread(self.loader_thread)
+        self._cleanup_thread(self.quality_thread)
+
+==================================================
+### FILE: .\models\category.py ###
+==================================================
+class Category(dict):
+    def __init__(self, name: str, channels: list = None):
+        channels = channels or []
+        super().__init__(name=name, channels=channels)
+        self.name = name
+        self.channels = channels
+
+==================================================
+### FILE: .\models\channel.py ###
+==================================================
+class Channel(dict):
+    def __init__(self, name: str, logo: str = "", group: str = "Uncategorized", streams: list = None):
+        streams = streams or []
+        super().__init__(name=name, logo=logo, group=group, streams=streams)
+        self.name = name
+        self.logo = logo
+        self.group = group
+        self.streams = streams
+
+==================================================
+### FILE: .\models\playlist.py ###
+==================================================
+class Playlist(dict):
+    def __init__(self, channels: list = None, url_to_channel: dict = None):
+        channels = channels or []
+        url_to_channel = url_to_channel or {}
+        super().__init__(channels=channels, url_to_channel=url_to_channel)
+        self.channels = channels
+        self.url_to_channel = url_to_channel
+
+==================================================
+### FILE: .\models\stream.py ###
+==================================================
+class Stream(dict):
+    def __init__(self, url: str, status: str = "UNKNOWN", last_check=None, latency=None, quality=None):
+        super().__init__(url=url, status=status, last_check=last_check, latency=latency, quality=quality)
+        self.url = url
+        self.status = status
+        self.last_check = last_check
+        self.latency = latency
+        self.quality = quality
+
+==================================================
+### FILE: .\models\__init__.py ###
+==================================================
+
+
+
+==================================================
+### FILE: .\repositories\playlist_repository.py ###
+==================================================
+class PlaylistRepository:
+    def __init__(self):
+        self._channels = []
+        self._url_to_channel = {}
+
+    def set_data(self, channels: list, url_to_channel: dict):
+        self._channels = channels
+        self._url_to_channel = url_to_channel
+
+    def get_channels(self) -> list:
+        return self._channels
+
+    def get_channel_by_url(self, url: str):
+        return self._url_to_channel.get(url)
+    
+    def clear(self):
+        self._channels = []
+        self._url_to_channel = {}
+
+==================================================
+### FILE: .\services\network_service.py ###
+==================================================
+import requests
+from utils.headers import get_browser_headers
+from config.constants import DEFAULT_TIMEOUT
+
+class NetworkService:
+    _session = None
+
+    @classmethod
+    def get_session(cls) -> requests.Session:
+        if cls._session is None:
+            cls._session = requests.Session()
+            adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=2)
+            cls._session.mount('http://', adapter)
+            cls._session.mount('https://', adapter)
+        return cls._session
+
+    @classmethod
+    def fetch_text(cls, url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
+        session = cls.get_session()
+        headers = get_browser_headers()
+        resp = session.get(url, headers=headers, timeout=timeout, verify=False)
+        resp.raise_for_status()
+        return resp.text
+
+==================================================
+### FILE: .\services\parser_service.py ###
+==================================================
+from utils.regex import RE_EXTINF_NAME, RE_EXTINF_LOGO, RE_EXTINF_GROUP, RE_STREAM_RES
+from utils.helpers import get_quality_label
+from urllib.parse import urljoin
+from models.channel import Channel
+from models.stream import Stream
+
+class ParserService:
+    @staticmethod
+    def parse_m3u(content: str) -> tuple:
+        channels_dict = {}
+        current_channel_info = None
+        for line in content.splitlines():
+            line = line.strip()
+            if not line: continue
+            if line.startswith('#EXTINF:'):
+                name_match = RE_EXTINF_NAME.search(line)
+                logo_match = RE_EXTINF_LOGO.search(line)
+                group_match = RE_EXTINF_GROUP.search(line)
+                name = name_match.group(1).strip() if name_match else line.split(',')[-1].strip()
+                name = name if name else "Unnamed Channel"
+                logo = logo_match.group(1).strip() if logo_match else ""
+                group = group_match.group(1).strip() if group_match else "Uncategorized"
+                current_channel_info = {'name': name, 'logo': logo, 'group': group}
+            elif not line.startswith('#'):
+                if current_channel_info:
+                    name = current_channel_info['name']
+                    key = name
+                    if key not in channels_dict:
+                        channels_dict[key] = Channel(name=name, logo=current_channel_info['logo'], group=current_channel_info['group'], streams=[])
+                    stream_entry = Stream(url=line)
+                    channels_dict[key]["streams"].append(stream_entry)
+                    current_channel_info = None
+                else:
+                    key = f"Unknown_{len(channels_dict)}"
+                    channels_dict[key] = Channel(name=f"Channel {len(channels_dict) + 1}", logo="", group="Other", streams=[Stream(url=line)])
+        channels_list = list(channels_dict.values())
+        url_to_channel = {}
+        for ch in channels_list:
+            for stream in ch.get("streams", []):
+                url_to_channel[stream["url"]] = ch
+        return channels_list, url_to_channel
+
+    @staticmethod
+    def parse_master_m3u8_from_text(content: str, base_url: str) -> list:
+        qualities = []
+        if '#EXT-X-STREAM-INF' not in content: return qualities
+        lines = content.splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith('#EXT-X-STREAM-INF'):
+                res_match = RE_STREAM_RES.search(line)
+                if res_match:
+                    height = int(res_match.group(1))
+                    label = get_quality_label(height)
+                    if i + 1 < len(lines):
+                        stream_url = lines[i + 1].strip()
+                        if not stream_url.startswith('http'): stream_url = urljoin(base_url, stream_url)
+                        qualities.append({'label': label, 'height': height, 'url': stream_url})
+        return qualities
+
+==================================================
+### FILE: .\services\playlist_service.py ###
+==================================================
+from services.parser_service import ParserService
+from repositories.playlist_repository import PlaylistRepository
+
+class PlaylistService:
+    def __init__(self, repo: PlaylistRepository):
+        self.repo = repo
+        self.parser = ParserService()
+
+    def process_content(self, content: str) -> str:
+        if '#EXT-X-VERSION' in content or '#EXT-X-TARGETDURATION' in content or not content.strip().startswith('#EXTM3U'):
+            return "SINGLE_STREAM"
+        
+        channels, url_map = self.parser.parse_m3u(content)
+        if not channels:
+            return "NO_CHANNELS"
+            
+        self.repo.set_data(channels, url_map)
+        return "SUCCESS"
+
+==================================================
+### FILE: .\services\subtitle_service.py ###
+==================================================
+class SubtitleService:
+    @staticmethod
+    def auto_select(player, sub_combo) -> bool:
+        if player is None: return False
+        tracks = player.track_list or []
+        
+        for track in tracks:
+            if track.get("type") == "sub":
+                lang = (track.get("lang") or "").lower()
+                title = (track.get("title") or "").lower()
+                if lang in ["en", "eng"] and "cc" not in title and "608" not in title and "708" not in title:
+                    player.sub = str(track["id"])
+                    player.sub_visibility = True
+                    for i in range(sub_combo.count()):
+                        if sub_combo.itemData(i) == str(track["id"]):
+                            sub_combo.setCurrentIndex(i)
+                            break
+                    return True
+                    
+        for track in tracks:
+            if track.get("type") == "sub":
+                title = (track.get("title") or "").lower()
+                if "cc" not in title and "608" not in title and "708" not in title:
+                    player.sub = str(track["id"])
+                    player.sub_visibility = True
+                    for i in range(sub_combo.count()):
+                        if sub_combo.itemData(i) == str(track["id"]):
+                            sub_combo.setCurrentIndex(i)
+                            break
+                    return True
+                    
+        for track in tracks:
+            if track.get("type") == "sub":
+                player.sub = str(track["id"])
+                player.sub_visibility = True
+                for i in range(sub_combo.count()):
+                    if sub_combo.itemData(i) == str(track["id"]):
+                        sub_combo.setCurrentIndex(i)
+                        break
+                return True
+        return False
+
+==================================================
+### FILE: .\threads\m3u_loader_thread.py ###
+==================================================
+from PyQt6.QtCore import QThread, pyqtSignal
+from services.network_service import NetworkService
+
+class M3ULoaderThread(QThread):
+    finished = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, url: str):
+        super().__init__()
+        self.url = url
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        try:
+            content = NetworkService.fetch_text(self.url)
+            if not self._cancelled:
+                self.finished.emit(content)
+        except Exception as e:
+            if not self._cancelled:
+                self.error.emit(str(e))
+
+==================================================
+### FILE: .\threads\quality_thread.py ###
+==================================================
+from PyQt6.QtCore import QThread, pyqtSignal
+from services.network_service import NetworkService
+from services.parser_service import ParserService
+
+class M3U8QualityThread(QThread):
+    finished = pyqtSignal(list)
+
+    def __init__(self, url: str):
+        super().__init__()
+        self.url = url
+
+    def run(self):
+        try:
+            content = NetworkService.fetch_text(self.url)
+            qualities = ParserService.parse_master_m3u8_from_text(content, self.url)
+            self.finished.emit(qualities)
+        except Exception as e:
+            print(f"⚠️ Error parsing Master M3U8: {e}")
+            self.finished.emit([])
+
+==================================================
+### FILE: .\threads\__init__.py ###
+==================================================
+
+
+==================================================
+### FILE: .\ui\styles\stylesheet.py ###
+==================================================
+from config.colors import Colors
+
+def get_modern_stylesheet() -> str:
+    return f"""
+    QMainWindow {{ background-color: {Colors.BG_DARK}; }}
+    QWidget {{ background-color: {Colors.BG_DARK}; color: {Colors.TEXT_PRIMARY}; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 13px; }}
+    QPushButton {{ background-color: {Colors.BG_LIGHT}; color: {Colors.TEXT_PRIMARY}; border: 1px solid {Colors.BORDER_LIGHT}; border-radius: 10px; padding: 8px 16px; font-weight: 600; min-height: 36px; font-size: 13px; }}
+    QPushButton:hover {{ background-color: {Colors.BG_LIGHT}; border-color: {Colors.PRIMARY}; color: {Colors.PRIMARY}; }}
+    QPushButton:pressed {{ background-color: {Colors.PRIMARY_DARK}; }}
+    QPushButton:disabled {{ background-color: {Colors.BG_LIGHT}; color: {Colors.TEXT_MUTED}; }}
+    QLineEdit {{ border:none; background:transparent; }}
+    QLineEdit:focus {{ border-color: {Colors.PRIMARY}; background-color: {Colors.BG_LIGHT}; }}
+    QComboBox {{ background-color: {Colors.BG_MEDIUM}; color: {Colors.TEXT_PRIMARY}; border: 1px solid {Colors.BORDER_LIGHT}; border-radius: 8px; padding: 8px 12px; min-height: 36px; }}
+    QComboBox:hover, QComboBox:focus {{ border-color: {Colors.PRIMARY}; }}
+    QComboBox::drop-down {{ border: none; width: 30px; }}
+    QComboBox QAbstractItemView {{ background-color: {Colors.BG_MEDIUM}; color: {Colors.TEXT_PRIMARY}; border: 1px solid {Colors.BORDER_LIGHT}; border-radius: 8px; selection-background-color: {Colors.PRIMARY}; padding: 5px; }}
+    QListWidget {{ background-color: transparent; color: {Colors.TEXT_PRIMARY}; border: none; border-radius: 8px; padding: 5px; outline: none; }}
+    QListWidget::item {{ padding: 8px 12px; border-radius: 8px; margin: 2px 4px; border: 1px solid transparent; }}
+    QListWidget::item:hover {{ background: rgba(0,212,255,0.08); }}
+    QListWidget::item:selected {{ background: rgba(0,212,255,0.18); border-radius: 8px; color: white; }}
+    QFrame#cardFrame {{ background-color: {Colors.BG_CARD}; border: 1px solid {Colors.BORDER_LIGHT}; border-radius: 12px; }}
+    QFrame#sidebarFrame {{ background-color: {Colors.BG_SIDEBAR}; border: 1px solid {Colors.BORDER_LIGHT}; border-radius: 12px; }}
+    QFrame#separator {{ background-color: {Colors.BORDER_LIGHT}; max-height: 1px; }}
+    QLabel#statusLabel {{ color: {Colors.ACCENT_GREEN}; background-color: {Colors.BG_MEDIUM}; padding: 8px 15px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 12px; }}
+    QLabel#loadingLabel {{ color: {Colors.PRIMARY}; background-color: rgba(10, 14, 26, 0.95); font-size: 28px; font-weight: 700; border: 2px solid {Colors.PRIMARY}; border-radius: 15px; padding: 30px 50px; }}
+    QSplitter::handle {{ background-color: {Colors.BORDER_LIGHT}; border-radius: 4px; width: 6px; margin: 5px 0; }}
+    QSplitter::handle:hover {{ background-color: {Colors.PRIMARY}; }}
+    QScrollBar:vertical {{ background: {Colors.BG_DARK}; width: 8px; border-radius: 4px; }}
+    QScrollBar::handle:vertical {{ background: {Colors.BORDER_LIGHT}; border-radius: 4px; min-height: 30px; }}
+    QScrollBar::handle:vertical:hover {{ background: {Colors.PRIMARY}; }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
+    """
+
+==================================================
+### FILE: .\ui\widgets\custom_widgets.py ###
+==================================================
+from PyQt6.QtWidgets import (QListWidget, QFrame, QPushButton, QWidget, QLabel, QSlider, QVBoxLayout, QComboBox)
+from PyQt6.QtCore import Qt, QTimer, QRectF
+from PyQt6.QtGui import QColor, QPainter, QPen, QLinearGradient as QLinearGradientGui, QPainterPath, QBrush, QFont
+from config.colors import Colors
+
+class ChannelListWidget(QListWidget):
+    def __init__(self, parent=None): super().__init__(parent)
+
+class GradientButton(QPushButton):
+    def __init__(self, text: str, parent=None, gradient_start=None, gradient_end=None):
+        super().__init__(text, parent)
+        self.gradient_start = QColor(gradient_start or Colors.GRADIENT_BUTTON_START)
+        self.gradient_end = QColor(gradient_end or Colors.GRADIENT_BUTTON_END)
+        self.hovered = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setMinimumHeight(42)
+        self.setStyleSheet("QPushButton { background: transparent; border: none; color: #0a0e1a; font-weight: 700; font-size: 13px; border-radius: 10px; padding: 0 20px; }")
+
+    def enterEvent(self, event): self.hovered = True; self.update(); super().enterEvent(event)
+    def leaveEvent(self, event): self.hovered = False; self.update(); super().leaveEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(self.rect().adjusted(1, 1, -1, -1)), 10, 10)
+        gradient = QLinearGradientGui(self.rect().topLeft().x(), self.rect().topLeft().y(), self.rect().bottomRight().x(), self.rect().bottomRight().y())
+        gradient.setColorAt(0, self.gradient_start.lighter(20) if self.hovered else self.gradient_start)
+        gradient.setColorAt(1, self.gradient_end.lighter(20) if self.hovered else self.gradient_end)
+        painter.fillPath(path, QBrush(gradient))
+        painter.setPen(QPen(QColor(Colors.BORDER_FOCUS), 1))
+        painter.drawPath(path)
+        painter.setPen(QPen(QColor("#0a0e1a")))
+        painter.setFont(self.font())
+        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.text())
+
+class ChannelNameOverlay(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.channel_name = ""
+        self.opacity = 0.0
+        self.fade_timer = QTimer(self)
+        self.fade_timer.timeout.connect(self._fade_out)
+        self.hide()
+
+    def show_channel_name(self, name: str):
+        self.channel_name = name; self.opacity = 1.0; self.show(); self.raise_(); self.fade_timer.start(2000)
+
+    def _fade_out(self):
+        self.fade_timer.stop(); self.opacity = max(0, self.opacity - 0.05); self.update()
+        if self.opacity <= 0: self.hide()
+
+    def paintEvent(self, event):
+        if not self.channel_name: return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(0, 0, 0, int(150 * self.opacity)))
+        painter.drawRoundedRect(self.rect(), 8, 8)
+        painter.setPen(QPen(QColor(255, 255, 255, int(255 * self.opacity))))
+        painter.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.channel_name)
+
+class ModernSlider(QSlider):
+    def __init__(self, orientation, parent=None):
+        super().__init__(orientation, parent)
+        self.setStyleSheet("QSlider::groove:horizontal { border: none; height: 6px; background: #1e3048; border-radius: 3px; } QSlider::handle:horizontal { background: #00d4ff; border: none; width: 16px; height: 16px; margin: -5px 0; border-radius: 8px; } QSlider::sub-page:horizontal { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00d4ff, stop:1 #0099ff); border-radius: 3px; } QSlider::add-page:horizontal { background: #1e3048; border-radius: 3px; }")
+
+class SettingsPopup(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.Popup)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedSize(280, 320)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(12)
+        title = QLabel("⚙️ Settings")
+        title.setStyleSheet("color: #00d4ff; font-size: 16px; font-weight: 700; padding-bottom: 8px; border-bottom: 1px solid #1e3048;")
+        layout.addWidget(title)
+        
+        combo_style = "QComboBox { background: #111827; color: #e8f4f8; border: 1px solid #1e3048; border-radius: 8px; padding: 8px 12px; font-size: 12px; } QComboBox:hover { border-color: #00d4ff; }"
+        for lbl_text in ["🔊 Audio Quality", "📝 Subtitles", "🎬 Playback Quality"]:
+            layout.addWidget(QLabel(lbl_text, styleSheet="color: #8ba4b8; font-size: 12px; font-weight: 600;"))
+            combo = QComboBox()
+            combo.addItem("Auto" if "Quality" in lbl_text else "No Subtitle")
+            combo.setStyleSheet(combo_style)
+            layout.addWidget(combo)
+            if "Audio" in lbl_text: self.audio_combo = combo
+            elif "Sub" in lbl_text: self.sub_combo = combo
+            else: self.quality_combo = combo
+        layout.addStretch()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(self.rect().adjusted(1, 1, -1, -1)), 12, 12)
+        gradient = QLinearGradientGui(self.rect().topLeft().x(), self.rect().topLeft().y(), self.rect().bottomRight().x(), self.rect().bottomRight().y())
+        gradient.setColorAt(0, QColor("#111827")); gradient.setColorAt(1, QColor("#1a2332"))
+        painter.fillPath(path, QBrush(gradient))
+        painter.setPen(QPen(QColor("#1e3048"), 1))
+        painter.drawPath(path)
+
+==================================================
+### FILE: .\ui\windows\main_window.py ###
+==================================================
+from PyQt6.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
+    QLineEdit, QListWidget, QListWidgetItem, QLabel, QFileDialog, 
+    QMessageBox, QSizePolicy, QFrame, QSplitter, QMenu
+)
+from PyQt6.QtCore import Qt, QPoint, QSize
+from PyQt6.QtGui import QColor
+
+from config.colors import Colors
+from config.constants import DEFAULT_VOLUME
+from repositories.playlist_repository import PlaylistRepository
+from services.playlist_service import PlaylistService
+from managers.mpv_manager import MPVManager
+from managers.thread_manager import ThreadManager
+from controllers.player_controller import PlayerController
+from controllers.playlist_controller import PlaylistController
+from controllers.search_controller import SearchController
+from controllers.settings_controller import SettingsController
+from controllers.fullscreen_controller import FullscreenController
+from controllers.keyboard_controller import KeyboardController
+from ui.styles.stylesheet import get_modern_stylesheet
+from ui.widgets.custom_widgets import (
+    ChannelListWidget, GradientButton, ChannelNameOverlay, 
+    ModernSlider, SettingsPopup
+)
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("IPTV Player - Modern Edition")
+        self.resize(1400, 780)
+        self.setMinimumSize(1000, 650)
+        
+        # 1. Instantiate Repositories & Services
+        self.repo = PlaylistRepository()
+        self.playlist_service = PlaylistService(self.repo)
+        
+        # 2. Instantiate Managers
+        self.mpv_manager = MPVManager()
+        self.thread_mgr = ThreadManager()
+        
+        # 3. Instantiate Controllers (Dependency Injection)
+        self.player_ctrl = PlayerController(self.mpv_manager, self.repo)
+        self.playlist_ctrl = PlaylistController(self.playlist_service, self.repo, self.thread_mgr)
+        self.search_ctrl = SearchController(self.repo)
+        self.settings_ctrl = SettingsController(self.mpv_manager)
+        self.fullscreen_ctrl = FullscreenController()
+        
+        # 4. Build UI
+        self.init_ui()
+        
+        # 5. Inject UI elements into Keyboard Controller
+        self.keyboard_ctrl = KeyboardController(
+            self.player_ctrl, self.playlist_ctrl, self.settings_ctrl, 
+            self.fullscreen_ctrl, self.volume_slider
+        )
+        
+        # 6. Wire Signals
+        self._connect_signals()
+        
+        # 7. Initialize MPV with the Window ID
+        self.mpv_manager.initialize(int(self.video_container.winId()))
+        self.mpv_manager.error_occurred.connect(
+            lambda msg: QMessageBox.critical(self, "MPV Error", f"Failed to initialize MPV:\n{msg}")
+        )
+
+    def init_ui(self):
+        self.setStyleSheet(get_modern_stylesheet())
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
+        main_layout = QHBoxLayout(main_widget)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(12)
+
+        # ========== LEFT PANEL (Sidebar) ==========
+        self.left_panel = QFrame()
+        self.left_panel.setObjectName("sidebarFrame")
+        self.left_panel.setMinimumWidth(450)
+        self.left_panel.setMaximumWidth(600)
+        left_layout = QVBoxLayout(self.left_panel)
+        left_layout.setContentsMargins(16, 16, 16, 16)
+        left_layout.setSpacing(14)
+
+        left_layout.addWidget(QLabel("📺 Channel List", styleSheet=f"font-size: 18px; font-weight: 700; color: {Colors.PRIMARY}; margin-bottom: 5px;"))
+        
+        load_file_btn = GradientButton("📂 Load M3U", gradient_start=Colors.GRADIENT_BUTTON_START, gradient_end=Colors.GRADIENT_BUTTON_END)
+        load_file_btn.setFixedHeight(34)
+        load_file_btn.clicked.connect(self._load_file_dialog)
+        left_layout.addWidget(load_file_btn)
+
+        url_frame = QFrame()
+        url_frame.setObjectName("cardFrame")
+        url_layout = QHBoxLayout(url_frame)
+        url_layout.setContentsMargins(4, 4, 4, 4)
+        url_layout.setSpacing(6)
+        self.url_input = QLineEdit()
+        self.url_input.setPlaceholderText("Enter M3U URL or direct stream link...")
+        self.url_input.setFixedHeight(28)
+        load_url_btn = QPushButton("▶")
+        load_url_btn.setStyleSheet("QPushButton { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #00d4ff, stop:1 #0099ff); color: #0a0e1a; border: none; border-radius: 8px; font-weight: 700; font-size: 14px; } QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #33ddff, stop:1 #00aaff); }")
+        load_url_btn.setMaximumWidth(44)
+        load_url_btn.setMinimumHeight(10)
+        load_url_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        load_url_btn.clicked.connect(lambda: self.playlist_ctrl.load_url(self.url_input.text().strip()))
+        url_layout.addWidget(self.url_input)
+        url_layout.addWidget(load_url_btn)
+        left_layout.addWidget(url_frame)
+
+        sep1 = QFrame()
+        sep1.setObjectName("separator")
+        sep1.setFrameShape(QFrame.Shape.HLine)
+        left_layout.addWidget(sep1)
+
+        search_frame = QFrame()
+        search_frame.setObjectName("cardFrame")
+        search_layout = QHBoxLayout(search_frame)
+        search_layout.setContentsMargins(12, 6, 12, 6)
+        search_layout.addWidget(QLabel("🔍", styleSheet="font-size: 16px;"))
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search Channels...")
+        self.search_input.setFixedHeight(28)
+        self.search_input.setStyleSheet("border: none; background: transparent;")
+        search_layout.addWidget(self.search_input)
+        left_layout.addWidget(search_frame)
+
+        self.list_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.list_splitter.setHandleWidth(4)
+        self.category_list = QListWidget()
+        self.channel_list = ChannelListWidget()
+        self.channel_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.list_splitter.addWidget(self.category_list)
+        self.list_splitter.addWidget(self.channel_list)
+        self.list_splitter.setSizes([180, 270])
+        left_layout.addWidget(self.list_splitter, stretch=1)
+
+        self.channel_count_label = QLabel("0 channels loaded", styleSheet=f"color: {Colors.TEXT_MUTED}; font-size: 11px; padding: 5px;")
+        left_layout.addWidget(self.channel_count_label)
+
+        # ========== RIGHT PANEL (Video + Controls) ==========
+        self.right_panel = QFrame()
+        self.right_panel.setObjectName("cardFrame")
+        right_layout = QVBoxLayout(self.right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+
+        self.video_container = QWidget()
+        self.video_container.setStyleSheet(f"background-color: {Colors.BG_DARK}; border-radius: 12px;")
+        self.video_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.video_container.setMinimumHeight(420)
+        video_layout = QVBoxLayout(self.video_container)
+        video_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.black_overlay = QLabel()
+        self.black_overlay.setStyleSheet(f"background-color: {Colors.BG_DARK}; border-radius: 12px;")
+        self.black_overlay.hide()
+        video_layout.addWidget(self.black_overlay)
+
+        self.channel_name_overlay = ChannelNameOverlay(self.video_container)
+        self.channel_name_overlay.setGeometry(20, 20, 400, 50)
+
+        self.loading_label = QLabel("LOADING STREAM...")
+        self.loading_label.setObjectName("loadingLabel")
+        self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_label.hide()
+        video_layout.addWidget(self.loading_label, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self.btn_exit_fs = QPushButton("✕ Exit Fullscreen")
+        self.btn_exit_fs.setStyleSheet("QPushButton { background: #ff5252; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; } QPushButton:hover { background: #ff1744; }")
+        self.btn_exit_fs.setMaximumWidth(140)
+        self.btn_exit_fs.hide()
+        exit_fs_layout = QVBoxLayout()
+        exit_fs_layout.setContentsMargins(15, 15, 15, 0)
+        exit_fs_layout.addWidget(self.btn_exit_fs, alignment=Qt.AlignmentFlag.AlignRight)
+        video_layout.addLayout(exit_fs_layout)
+         
+        right_layout.addWidget(self.video_container, stretch=1)
+
+        self.status_bar = QLabel("Ready | Played: 0s | Buffered: 0% | Cache: 0.0 MB")
+        self.status_bar.setObjectName("statusLabel")
+        right_layout.addWidget(self.status_bar)
+
+        # ========== VIDEO TOOLBAR ==========
+        self.toolbar_widget = QFrame()
+        self.toolbar_widget.setObjectName("cardFrame")
+        toolbar_layout = QVBoxLayout(self.toolbar_widget)
+        toolbar_layout.setContentsMargins(16, 12, 16, 12)
+        toolbar_layout.setSpacing(10)
+
+        progress_layout = QHBoxLayout()
+        progress_layout.setSpacing(10)
+        self.time_label = QLabel("00:00", styleSheet="color: #8ba4b8; font-size: 12px; font-family: 'Consolas', monospace; min-width: 50px;")
+        progress_layout.addWidget(self.time_label)
+        self.progress_slider = ModernSlider(Qt.Orientation.Horizontal)
+        self.progress_slider.setMinimumHeight(20)
+        progress_layout.addWidget(self.progress_slider, stretch=1)
+        self.duration_label = QLabel("00:00", styleSheet="color: #8ba4b8; font-size: 12px; font-family: 'Consolas', monospace; min-width: 50px;")
+        progress_layout.addWidget(self.duration_label)
+        toolbar_layout.addLayout(progress_layout)
+
+        controls_row = QHBoxLayout()
+        controls_row.setSpacing(12)
+        volume_layout = QHBoxLayout()
+        volume_layout.setSpacing(6)
+        self.volume_icon = QLabel("◉", styleSheet="font-size: 16px; background: transparent; border: none;")
+        self.volume_slider = ModernSlider(Qt.Orientation.Horizontal)
+        self.volume_slider.setRange(0, 100)
+        self.volume_slider.setValue(DEFAULT_VOLUME)
+        self.volume_slider.setMaximumWidth(120)
+        volume_layout.addWidget(self.volume_icon)
+        volume_layout.addWidget(self.volume_slider)
+        controls_row.addLayout(volume_layout)
+        controls_row.addStretch()
+
+        play_controls = QHBoxLayout()
+        play_controls.setSpacing(8)
+        btn_style = "QPushButton { background: #1a2332; color: #e8f4f8; border: 1px solid #1e3048; border-radius: 10px; font-size: 16px; min-width: 44px; min-height: 44px; } QPushButton:hover { border-color: #00d4ff; color: #00d4ff; }"
+        
+        self.btn_prev = QPushButton("⏮")
+        self.btn_prev.setStyleSheet(btn_style)
+        self.btn_prev.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        self.btn_play_pause = QPushButton("▶")
+        self.btn_play_pause.setStyleSheet("QPushButton { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #00d4ff, stop:1 #0099ff); color: #0a0e1a; border: none; border-radius: 12px; font-size: 18px; font-weight: 700; min-width: 52px; min-height: 52px; } QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #33ddff, stop:1 #00aaff); }")
+        self.btn_play_pause.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        self.btn_next = QPushButton("⏭")
+        self.btn_next.setStyleSheet(btn_style)
+        self.btn_next.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        play_controls.addWidget(self.btn_prev)
+        play_controls.addWidget(self.btn_play_pause)
+        play_controls.addWidget(self.btn_next)
+        controls_row.addLayout(play_controls)
+        controls_row.addStretch()
+
+        self.btn_settings = QPushButton("⚙️")
+        self.btn_settings.setStyleSheet(btn_style)
+        self.btn_settings.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        self.btn_fullscreen = QPushButton("⛶")
+        self.btn_fullscreen.setStyleSheet(btn_style)
+        self.btn_fullscreen.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        controls_row.addWidget(self.btn_settings)
+        controls_row.addWidget(self.btn_fullscreen)
+        toolbar_layout.addLayout(controls_row)
+        right_layout.addWidget(self.toolbar_widget)
+
+        self.settings_popup = SettingsPopup(self)
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.addWidget(self.left_panel)
+        self.splitter.addWidget(self.right_panel)
+        self.splitter.setSizes([450, 950])
+        main_layout.addWidget(self.splitter)
+
+    def _connect_signals(self):
+        # Player Signals
+        self.player_ctrl.loading_state_changed.connect(self._handle_loading)
+        self.player_ctrl.status_update.connect(self._handle_status_update)
+        self.player_ctrl.channel_name_requested.connect(self.channel_name_overlay.show_channel_name)
+        
+        # Playlist Signals
+        self.playlist_ctrl.playlist_loaded.connect(self._handle_playlist_loaded)
+        self.playlist_ctrl.categories_updated.connect(self._handle_categories_updated)
+        self.playlist_ctrl.channels_updated.connect(self._handle_channels_updated)
+        self.playlist_ctrl.loading_state_changed.connect(self._handle_loading)
+        self.playlist_ctrl.error_occurred.connect(lambda msg: QMessageBox.warning(self, "Error", msg))
+        
+        # Search Signals
+        self.search_ctrl.search_results.connect(self._handle_search_results)
+        self.search_input.textChanged.connect(self._on_search_text_changed)
+        
+        # MPV Track List Signals
+        self.mpv_manager.track_list_changed.connect(
+            lambda tl: self.settings_ctrl.process_track_list(
+                tl, self.settings_popup.audio_combo, 
+                self.settings_popup.sub_combo, self.settings_popup.quality_combo
+            )
+        )
+        
+        # Fullscreen Signals
+        self.fullscreen_ctrl.fullscreen_state_changed.connect(self._apply_fullscreen_state)
+        
+        # UI Events to Controllers
+        self.btn_play_pause.clicked.connect(self.player_ctrl.toggle_play_pause)
+        self.btn_next.clicked.connect(self.player_ctrl.play_next)
+        self.btn_prev.clicked.connect(self.player_ctrl.play_prev)
+        self.progress_slider.valueChanged.connect(self.player_ctrl.seek)
+        self.volume_slider.valueChanged.connect(self.player_ctrl.set_volume)
+        self.volume_slider.valueChanged.connect(self._update_volume_icon)
+        
+        self.btn_fullscreen.clicked.connect(self.fullscreen_ctrl.toggle)
+        self.btn_exit_fs.clicked.connect(self.fullscreen_ctrl.toggle)
+        self.btn_settings.clicked.connect(self._toggle_settings_popup)
+        
+        self.category_list.itemClicked.connect(self._on_category_selected)
+        self.channel_list.itemClicked.connect(self._on_channel_item_clicked)
+        self.channel_list.customContextMenuRequested.connect(self._show_channel_context_menu)
+        
+        # Settings Events
+        self.settings_popup.audio_combo.currentIndexChanged.connect(lambda: self.settings_ctrl.change_audio(self.settings_popup.audio_combo))
+        self.settings_popup.sub_combo.currentIndexChanged.connect(lambda: self.settings_ctrl.change_sub(self.settings_popup.sub_combo))
+        self.settings_popup.quality_combo.currentIndexChanged.connect(
+            lambda: self.settings_ctrl.change_quality(
+                self.settings_popup.quality_combo, 
+                lambda: self.player_ctrl.current_url, 
+                self.player_ctrl.play_channel
+            )
+        )
+
+    # ==========================================
+    # VIEW EVENT HANDLERS (No Business Logic)
+    # ==========================================
+    def _load_file_dialog(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select M3U File", "", "M3U Files (*.m3u *.m3u8);;All Files (*.*)")
+        if file_path: 
+            self.playlist_ctrl.load_file(file_path)
+
+    def _handle_loading(self, show: bool):
+        if show:
+            self.black_overlay.show()
+            self.loading_label.show()
+            self.loading_label.raise_()
+            self.black_overlay.raise_()
+        else:
+            self.loading_label.hide()
+            self.black_overlay.hide()
+
+    def _handle_status_update(self, data: dict):
+        self.status_bar.setText(data["text"])
+        self.time_label.setText(data["time_label"])
+        self.duration_label.setText(data["duration_label"])
+        if data["progress"] != -1:
+            self.progress_slider.blockSignals(True)
+            self.progress_slider.setValue(data["progress"])
+            self.progress_slider.blockSignals(False)
+
+    def _handle_playlist_loaded(self, count: int):
+        if count == -1:
+            self.player_ctrl.play_channel(self.playlist_ctrl.get_pending_url())
+        else:
+            self.channel_count_label.setText(f"{count} channels loaded")
+
+    def _handle_categories_updated(self, cat_list: list):
+        self.category_list.clear()
+        self.channel_list.clear()
+        self.category_list.setUpdatesEnabled(False)
+        for cat in cat_list:
+            item = QListWidgetItem(f"◉ {cat['name']}    ({len(cat['channels'])})")
+            item.setData(Qt.ItemDataRole.UserRole, (cat['name'], cat['channels']))
+            item.setSizeHint(QSize(0, 36))
+            self.category_list.addItem(item)
+        self.category_list.setUpdatesEnabled(True)
+        placeholder = QListWidgetItem("Select a category from the left.")
+        placeholder.setFlags(placeholder.flags() & ~Qt.ItemFlag.ItemIsSelectable & ~Qt.ItemFlag.ItemIsEnabled)
+        self.channel_list.addItem(placeholder)
+
+    def _handle_channels_updated(self, channels: list, is_search: bool, match_count: int):
+        self.channel_list.clear()
+        self.channel_list.setUpdatesEnabled(False)
+        for ch in channels:
+            name = ch["name"]
+            stream_count = len(ch.get("streams", []))
+            if stream_count > 1: name += f" ({stream_count})"
+            item = QListWidgetItem(f"📺 {name}")
+            item.setData(Qt.ItemDataRole.UserRole, ch)
+            item.setSizeHint(QSize(0, 32))
+            self.channel_list.addItem(item)
+        if is_search:
+            info = QListWidgetItem(f"🔍 Found {match_count} channels.")
+            info.setForeground(QColor(Colors.ACCENT_BLUE))
+            info.setFlags(info.flags() & ~Qt.ItemFlag.ItemIsSelectable & ~Qt.ItemFlag.ItemIsEnabled)
+            self.channel_list.insertItem(0, info)
+        self.channel_list.setUpdatesEnabled(True)
+
+    def _on_search_text_changed(self, text: str):
+        base_channels = self.playlist_ctrl.current_category_channels if self.playlist_ctrl.current_category_name else self.repo.get_channels()
+        self.search_ctrl.set_query(text, base_channels)
+
+    def _handle_search_results(self, filtered: list, count: int):
+        self._handle_channels_updated(filtered, is_search=True, match_count=count)
+
+    def _on_category_selected(self, item):
+        role_data = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(role_data, tuple):
+            self.search_input.blockSignals(True)
+            self.search_input.clear()
+            self.search_input.blockSignals(False)
+            self.playlist_ctrl.select_category(role_data[0], role_data[1])
+
+    def _on_channel_item_clicked(self, item):
+        channel = item.data(Qt.ItemDataRole.UserRole)
+        if not channel or not isinstance(channel, dict): return
+        streams = channel.get("streams", [])
+        if streams:
+            self.player_ctrl.play_channel(streams[0]["url"])
+            channels = self.repo.get_channels()
+            for idx, ch in enumerate(channels):
+                if ch is channel: 
+                    self.player_ctrl.current_channel_index = idx
+                    break
+
+    def _show_channel_context_menu(self, pos):
+        item = self.channel_list.itemAt(pos)
+        if not item: return
+        channel = item.data(Qt.ItemDataRole.UserRole)
+        if not channel or not isinstance(channel, dict): return
+        menu = QMenu(self)
+        menu.setStyleSheet("QMenu { background: #111827; color: #e8f4f8; border: 1px solid #1e3048; border-radius: 8px; padding: 5px; } QMenu::item { padding: 8px 20px; border-radius: 4px; } QMenu::item:selected { background: #00d4ff; color: #0a0e1a; }")
+        streams = channel.get("streams", [])
+        if len(streams) > 1:
+            stream_menu = menu.addMenu("🎬 Select Stream")
+            for i, stream in enumerate(streams):
+                action = stream_menu.addAction(f"Stream {i+1}")
+                action.triggered.connect(lambda checked, url=stream["url"]: self.player_ctrl.play_channel(url))
+        menu.exec(self.channel_list.mapToGlobal(pos))
+
+    def _update_volume_icon(self, value):
+        if value == 0: self.volume_icon.setText("🔇")
+        elif value < 30: self.volume_icon.setText("🔈")
+        elif value < 70: self.volume_icon.setText("🔉")
+        else: self.volume_icon.setText("🔊")
+
+    def _toggle_settings_popup(self):
+        if self.settings_popup.isVisible():
+            self.settings_popup.hide()
+        else:
+            btn_pos = self.btn_settings.mapToGlobal(QPoint(0, 0))
+            x = btn_pos.x() + self.btn_settings.width() - self.settings_popup.width()
+            y = btn_pos.y() - self.settings_popup.height() - 10
+            self.settings_popup.move(x, y)
+            self.settings_popup.show()
+            self.settings_popup.raise_()
+            self.settings_popup.activateWindow()
+
+    def _apply_fullscreen_state(self, is_fs: bool):
+        if is_fs:
+            self.left_panel.hide()
+            self.toolbar_widget.hide()
+            self.status_bar.hide()
+            self.btn_exit_fs.show()
+            self.splitter.setContentsMargins(0, 0, 0, 0)
+            self.showFullScreen()
+        else:
+            self.left_panel.show()
+            self.toolbar_widget.show()
+            self.status_bar.show()
+            self.btn_exit_fs.hide()
+            self.splitter.setContentsMargins(12, 12, 12, 12)
+            self.showNormal()
+
+    def keyPressEvent(self, event):
+        if not self.keyboard_ctrl.handle_key(event):
+            super().keyPressEvent(event)
+
+    def closeEvent(self, event):
+        self.thread_mgr.cleanup_all()
+        self.mpv_manager.terminate()
+        event.accept()
+
+==================================================
+### FILE: .\utils\headers.py ###
+==================================================
+import random
+
+from config.constants import USER_AGENTS
+
+
+def get_random_user_agent() -> str:
+    return random.choice(USER_AGENTS)
+
+
+def get_browser_headers() -> dict:
+    return {
+        'User-Agent': get_random_user_agent(),
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9,fa;q=0.8',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache'
+    }
+
+==================================================
+### FILE: .\utils\helpers.py ###
+==================================================
+def get_quality_label(height: int, fps: int = 0) -> str:
+    if height >= 2160: label = "4K (2160p)"
+    elif height >= 1440: label = "QHD (1440p)"
+    elif height >= 1080: label = "FHD (1080p)"
+    elif height >= 720: label = "HD (720p)"
+    elif height >= 480: label = "SD (480p)"
+    elif height >= 360: label = "360p"
+    else: label = f"{height}p"
+    return f"{label} @ {int(fps)}fps" if fps > 0 else label
+
+
+def format_time(seconds: float) -> str:
+    if seconds <= 0: return "00:00"
+    mins = int(seconds) // 60
+    secs = int(seconds) % 60
+    return f"{mins:02d}:{secs:02d}"
+
+==================================================
+### FILE: .\utils\http.py ###
+==================================================
+import requests
+
+from utils.headers import get_browser_headers
+
+from config.constants import DEFAULT_TIMEOUT
+
+
+_http_session = None
+
+
+def get_http_session() -> requests.Session:
+    global _http_session
+    if _http_session is None:
+        _http_session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=2)
+        _http_session.mount('http://', adapter)
+        _http_session.mount('https://', adapter)
+    return _http_session
+
+
+def fetch_url_text(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
+    session = get_http_session()
+    headers = get_browser_headers()
+    resp = session.get(url, headers=headers, timeout=timeout, verify=False)
+    resp.raise_for_status()
+    return resp.text
+
+==================================================
+### FILE: .\utils\network.py ###
+==================================================
+from urllib.parse import urlparse
+
+
+def is_master_m3u8_url(url: str) -> bool:
+    parsed = urlparse(url)
+    path = parsed.path.lower()
+    return path.endswith('.m3u8') or path.endswith('.m3u')
+
+==================================================
+### FILE: .\utils\regex.py ###
+==================================================
+import re
+
+RE_EXTINF_NAME = re.compile(r'tvg-name="([^"]+)"')
+
+RE_EXTINF_LOGO = re.compile(r'tvg-logo="([^"]+)"')
+
+RE_EXTINF_GROUP = re.compile(r'group-title="([^"]+)"')
+
+RE_STREAM_RES = re.compile(r'RESOLUTION=\d+x(\d+)')
+
+==================================================
+### FILE: .\utils\__init__.py ###
+==================================================
+
+
+

@@ -1,8 +1,13 @@
+<img width="948" height="496" alt="Screenshot 2026-06-16 035250" src="https://github.com/user-attachments/assets/e2e2d91d-36f7-4531-8f93-902643cefd96" />
 # IPTV Modern Player
 
 Modern IPTV Player built with **Python**, **PyQt6**, and **MPV**.
 
 Designed for fast playlist loading, smooth playback, category management, and advanced stream controls with a modern desktop experience.
+
+
+<img width="948" height="496" alt="Screenshot 2026-06-16 035250" src="https://github.com/user-attachments/assets/55cc78fc-736e-4144-af4f-9e972905e0e3" />
+
 
 ---
 

@@ -1,4 +1,3 @@
-<img width="948" height="496" alt="Screenshot 2026-06-16 035250" src="https://github.com/user-attachments/assets/e2e2d91d-36f7-4531-8f93-902643cefd96" />
 # IPTV Modern Player
 
 Modern IPTV Player built with **Python**, **PyQt6**, and **MPV**.
